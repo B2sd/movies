@@ -1585,3 +1585,48 @@ button.top-rank-card:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Топ-5 колонками, несколько фильмов на одно место */
+.top-rank-board {
+  align-items: start;
+}
+
+.top-rank-column {
+  min-width: 0;
+  display: grid;
+  gap: 9px;
+  align-content: start;
+}
+
+.top-rank-column > .top-rank-label {
+  position: sticky;
+  top: 92px;
+  z-index: 1;
+}
+
+.top-rank-list {
+  display: grid;
+  gap: 8px;
+}
+
+.top-rank-card {
+  width: 100%;
+  min-height: 78px;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-rows: 1fr;
+  gap: 9px;
+}
+
+.top-rank-card img {
+  width: 48px;
+  height: 68px;
+}
+
+.top-rank-empty {
+  min-height: 78px;
+}
+
+.top-rank-empty::before {
+  width: 48px;
+  height: 68px;
+}

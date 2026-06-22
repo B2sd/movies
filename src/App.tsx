@@ -214,8 +214,7 @@ export default function App() {
   const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
   const topItems = useMemo(() => [...items]
     .filter((item) => item.topRank)
-    .sort((a, b) => (a.topRank || 99) - (b.topRank || 99))
-    .slice(0, 5), [items]);
+    .sort((a, b) => (a.topRank || 99) - (b.topRank || 99) || (b.myRating || 0) - (a.myRating || 0) || a.titleRu.localeCompare(b.titleRu, 'ru')), [items]);
   const selectedItem = selected ? items.find((item) => item.id === selected.id) || selected : null;
   const approvedCommentsCount = useMemo(() => comments.reduce<Record<string, number>>((acc, comment) => {
     if (comment.status !== 'approved') return acc;
@@ -370,32 +369,36 @@ export default function App() {
             <span className="eyebrow small">Мой топ</span>
             <h2>Мой топ-5</h2>
           </div>
-          <p>Закрепи фильмы на местах Топ 1 - Топ 5 прямо в карточке фильма после входа в админку.</p>
         </div>
         <div className="top-strip top-rank-board">
           {[1, 2, 3, 4, 5].map((rank) => {
-            const item = topItems.find((entry) => entry.topRank === rank);
-            return item ? (
-              <button key={rank} className="top-rank-card" onClick={() => setSelected(item)}>
+            const rankItems = topItems.filter((entry) => entry.topRank === rank);
+            return (
+              <div key={rank} className="top-rank-column">
                 <span className="top-rank-label">Топ {rank}</span>
-                <img
-                  src={getPosterUrl(item)}
-                  alt={item.titleRu}
-                  onError={(event) => {
-                    event.currentTarget.src = getPosterUrl({ ...item, posterUrl: '' });
-                  }}
-                />
-                <div>
-                  <strong>{item.titleRu}</strong>
-                  <small>{item.myRating ? `${item.myRating}/10` : item.year || 'без оценки'}</small>
-                </div>
-              </button>
-            ) : (
-              <div key={rank} className="top-rank-card top-rank-empty">
-                <span className="top-rank-label">Топ {rank}</span>
-                <div>
-                  <strong>Пусто</strong>
-                  <small>Выбери фильм</small>
+                <div className="top-rank-list">
+                  {rankItems.length === 0 ? (
+                    <div className="top-rank-card top-rank-empty">
+                      <div>
+                        <strong>Пусто</strong>
+                        <small>Выбери фильм</small>
+                      </div>
+                    </div>
+                  ) : rankItems.map((item) => (
+                    <button key={item.id} className="top-rank-card" onClick={() => setSelected(item)}>
+                      <img
+                        src={getPosterUrl(item)}
+                        alt={item.titleRu}
+                        onError={(event) => {
+                          event.currentTarget.src = getPosterUrl({ ...item, posterUrl: '' });
+                        }}
+                      />
+                      <div>
+                        <strong>{item.titleRu}</strong>
+                        <small>{item.myRating ? `${item.myRating}/10` : item.year || 'без оценки'}</small>
+                      </div>
+                    </button>
+                  ))}
                 </div>
               </div>
             );
