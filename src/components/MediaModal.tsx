@@ -1,6 +1,6 @@
-import { MessageCircle, Send, Star, X } from 'lucide-react';
+import { MessageCircle, Pencil, Send, Star, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { MediaItem, PublicComment } from '../types';
+import type { MediaItem, MediaType, PublicComment } from '../types';
 import { formatDate, formatRating, getBackdropUrl, getPosterUrl, mediaTypeLabels } from '../lib/helpers';
 
 type Props = {
@@ -12,9 +12,10 @@ type Props = {
   hasRated: boolean;
   isAdminUnlocked: boolean;
   onUpdateItem: (item: MediaItem) => void;
+  onDeleteItem: (id: string) => void;
 };
 
-export function MediaModal({ item, comments, onClose, onAddComment, onRate, hasRated, isAdminUnlocked, onUpdateItem }: Props) {
+export function MediaModal({ item, comments, onClose, onAddComment, onRate, hasRated, isAdminUnlocked, onUpdateItem, onDeleteItem }: Props) {
   const [name, setName] = useState('');
   const [comment, setComment] = useState('');
   const [rating, setRating] = useState(10);
@@ -23,8 +24,58 @@ export function MediaModal({ item, comments, onClose, onAddComment, onRate, hasR
   const [adminFavorite, setAdminFavorite] = useState(Boolean(item.isFavorite));
   const [adminTop, setAdminTop] = useState(Boolean(item.isTop));
   const [adminRewatch, setAdminRewatch] = useState(Boolean(item.rewatch));
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitleRu, setEditTitleRu] = useState(item.titleRu);
+  const [editTitleOriginal, setEditTitleOriginal] = useState(item.titleOriginal || '');
+  const [editType, setEditType] = useState<MediaType>(item.type);
+  const [editYear, setEditYear] = useState(item.year ? String(item.year) : '');
+  const [editPosterUrl, setEditPosterUrl] = useState(item.posterUrl || '');
+  const [editBackdropUrl, setEditBackdropUrl] = useState(item.backdropUrl || '');
+  const [editDescription, setEditDescription] = useState(item.description || '');
+  const [editGenres, setEditGenres] = useState((item.genres || []).join(', '));
+  const [editCountries, setEditCountries] = useState((item.countries || []).join(', '));
+  const [editKinopoiskRating, setEditKinopoiskRating] = useState(item.kinopoiskRating ? String(item.kinopoiskRating) : '');
+  const [editImdbRating, setEditImdbRating] = useState(item.imdbRating ? String(item.imdbRating) : '');
+  const [editKinopoiskId, setEditKinopoiskId] = useState(item.kinopoiskId ? String(item.kinopoiskId) : '');
+  const [editImdbId, setEditImdbId] = useState(item.imdbId || '');
   const approved = useMemo(() => comments.filter((entry) => entry.mediaId === item.id && entry.status === 'approved'), [comments, item.id]);
 
+
+  function numberOrUndefined(value: string) {
+    const number = Number(value);
+    return value.trim() && Number.isFinite(number) ? number : undefined;
+  }
+
+  function listFromText(value: string) {
+    return value.split(',').map((part) => part.trim()).filter(Boolean);
+  }
+
+  function submitCardEdit(event: React.FormEvent) {
+    event.preventDefault();
+    onUpdateItem({
+      ...item,
+      titleRu: editTitleRu.trim() || item.titleRu,
+      titleOriginal: editTitleOriginal.trim() || editTitleRu.trim() || item.titleRu,
+      type: editType,
+      year: numberOrUndefined(editYear),
+      posterUrl: editPosterUrl.trim(),
+      backdropUrl: editBackdropUrl.trim() || editPosterUrl.trim(),
+      description: editDescription.trim(),
+      genres: listFromText(editGenres),
+      countries: listFromText(editCountries),
+      kinopoiskRating: numberOrUndefined(editKinopoiskRating),
+      imdbRating: numberOrUndefined(editImdbRating),
+      kinopoiskId: numberOrUndefined(editKinopoiskId),
+      imdbId: editImdbId.trim() || undefined,
+    });
+    setEditOpen(false);
+  }
+
+  function deleteCurrentItem() {
+    if (!confirm(`Удалить «${item.titleRu}» из архива?`)) return;
+    onDeleteItem(item.id);
+    onClose();
+  }
 
   function submitAdminReview(event: React.FormEvent) {
     event.preventDefault();
@@ -109,6 +160,47 @@ export function MediaModal({ item, comments, onClose, onAddComment, onRate, hasR
         </div>
 
         <div className="modal-grid">
+          {isAdminUnlocked && (
+            <section className="review-panel inline-card-admin-panel">
+              <div className="inline-admin-head">
+                <div>
+                  <h3>Управление карточкой</h3>
+                  <p className="hint">Можно исправить фильм прямо здесь, не открывая админ-панель.</p>
+                </div>
+                <div className="inline-admin-actions">
+                  <button className="button ghost" type="button" onClick={() => setEditOpen((value) => !value)}><Pencil size={18} /> {editOpen ? 'Свернуть' : 'Редактировать'}</button>
+                  <button className="button ghost danger" type="button" onClick={deleteCurrentItem}><Trash2 size={18} /> Удалить</button>
+                </div>
+              </div>
+              {editOpen && (
+                <form className="inline-card-editor" onSubmit={submitCardEdit}>
+                  <div className="form-grid">
+                    <input value={editTitleRu} onChange={(event) => setEditTitleRu(event.target.value)} placeholder="Русское название" />
+                    <input value={editTitleOriginal} onChange={(event) => setEditTitleOriginal(event.target.value)} placeholder="Оригинальное название" />
+                    <select value={editType} onChange={(event) => setEditType(event.target.value as MediaType)}>
+                      <option value="movie">Фильм</option>
+                      <option value="series">Сериал</option>
+                      <option value="cartoon">Мультфильм</option>
+                      <option value="anime">Аниме</option>
+                      <option value="show">Шоу</option>
+                    </select>
+                    <input value={editYear} onChange={(event) => setEditYear(event.target.value)} placeholder="Год" type="number" />
+                    <input className="wide" value={editPosterUrl} onChange={(event) => setEditPosterUrl(event.target.value)} placeholder="URL постера" />
+                    <input className="wide" value={editBackdropUrl} onChange={(event) => setEditBackdropUrl(event.target.value)} placeholder="URL фона" />
+                    <input className="wide" value={editGenres} onChange={(event) => setEditGenres(event.target.value)} placeholder="Жанры через запятую" />
+                    <input className="wide" value={editCountries} onChange={(event) => setEditCountries(event.target.value)} placeholder="Страны через запятую" />
+                    <input value={editKinopoiskRating} onChange={(event) => setEditKinopoiskRating(event.target.value)} min="0" max="10" step="0.1" type="number" placeholder="Рейтинг КП" />
+                    <input value={editImdbRating} onChange={(event) => setEditImdbRating(event.target.value)} min="0" max="10" step="0.1" type="number" placeholder="Рейтинг IMDb" />
+                    <input value={editKinopoiskId} onChange={(event) => setEditKinopoiskId(event.target.value)} type="number" placeholder="Kinopoisk ID" />
+                    <input value={editImdbId} onChange={(event) => setEditImdbId(event.target.value)} placeholder="IMDb ID" />
+                    <textarea className="wide" value={editDescription} onChange={(event) => setEditDescription(event.target.value)} placeholder="Описание" rows={5} />
+                  </div>
+                  <button className="button primary full" type="submit">Сохранить карточку</button>
+                </form>
+              )}
+            </section>
+          )}
+
           <section className="review-panel">
             <h3>Моя рецензия</h3>
             {isAdminUnlocked ? (

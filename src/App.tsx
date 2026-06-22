@@ -437,6 +437,7 @@ export default function App() {
           hasRated={ratedMediaIds.includes(selectedItem.id)}
           isAdminUnlocked={isAdminUnlocked}
           onUpdateItem={handleUpdateItem}
+          onDeleteItem={handleDeleteItem}
         />
       )}
 
