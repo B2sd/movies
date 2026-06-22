@@ -321,28 +321,29 @@ export function AdminPanel({ items, comments, pendingRatings, activityLogs, onAp
   return (
     <div className="admin-shell">
       <div className="admin-card">
-        <div className="section-head compact">
-          <div>
-            <span className="eyebrow small"><Shield size={15} /> закрытая зона</span>
-            <h2>Админ-панель</h2>
-            <p>Добавление фильмов, редактирование карточек, мои оценки, рецензии и модерация комментариев.</p>
+        {isUnlocked && (
+          <div className="section-head compact">
+            <div>
+              <span className="eyebrow small"><Shield size={15} /> закрытая зона</span>
+              <h2>Админ-панель</h2>
+              <p>Добавление фильмов, редактирование карточек, мои оценки, рецензии и модерация комментариев.</p>
+            </div>
+            <div className="admin-actions">
+              <button className="button ghost" onClick={resetLocalData}>Сбросить локальные данные</button>
+              <button className="button ghost" onClick={logout}><LogOut size={18} /> Выйти</button>
+              <button className="button ghost" onClick={onClose}>Закрыть</button>
+            </div>
           </div>
-          <div className="admin-actions">
-            {isUnlocked && <button className="button ghost" onClick={resetLocalData}>Сбросить локальные данные</button>}
-            {isUnlocked && <button className="button ghost" onClick={logout}><LogOut size={18} /> Выйти</button>}
-            <button className="button ghost" onClick={onClose}>Закрыть</button>
-          </div>
-        </div>
+        )}
 
         {authChecking ? (
-          <div className="login-form">
-            <p className="hint">Проверяю админ-сессию...</p>
-          </div>
+          <form className="login-form admin-login-minimal">
+            <div className="login-skeleton" />
+          </form>
         ) : !isUnlocked ? (
-          <form className="login-form" onSubmit={login}>
-            <p className="hint">На опубликованном сайте вход только через Supabase email и пароль. Локальный код работает только на localhost.</p>
-            <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Твой email" />
-            <input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} placeholder="Секретный код или пароль Supabase" type="password" />
+          <form className="login-form admin-login-minimal" onSubmit={login}>
+            <input value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" aria-label="Email" />
+            <input value={accessCode} onChange={(event) => setAccessCode(event.target.value)} autoComplete="current-password" aria-label="Пароль" type="password" />
             {authError && <p className="hint" style={{ color: 'var(--red)' }}>{authError}</p>}
             <button className="button primary" type="submit"><LogIn size={18} /> Войти</button>
           </form>

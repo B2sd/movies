@@ -367,7 +367,6 @@ export default function App() {
         <div className="section-head">
           <div>
             <span className="eyebrow small">Мой топ</span>
-            <h2>Мой топ-5</h2>
           </div>
         </div>
         <div className="top-strip top-rank-board">

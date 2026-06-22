@@ -1630,3 +1630,36 @@ button.top-rank-card:hover {
   width: 48px;
   height: 68px;
 }
+
+/* Минимальный экран входа в админку */
+.admin-card:has(.admin-login-minimal) {
+  width: min(420px, 100%);
+  padding: 22px;
+  border-radius: 26px;
+}
+
+.admin-login-minimal {
+  gap: 10px;
+}
+
+.admin-login-minimal input {
+  min-height: 54px;
+  text-align: center;
+}
+
+.admin-login-minimal input:focus {
+  border-color: rgba(246, 196, 83, .42);
+  box-shadow: 0 0 0 3px rgba(246, 196, 83, .08);
+}
+
+.login-skeleton {
+  height: 54px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, rgba(255,255,255,.04), rgba(255,255,255,.1), rgba(255,255,255,.04));
+  background-size: 200% 100%;
+  animation: skeleton 1.2s linear infinite;
+}
+
+@keyframes skeleton {
+  to { background-position: -200% 0; }
+}
