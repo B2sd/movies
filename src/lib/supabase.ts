@@ -84,6 +84,7 @@ type MediaRow = {
   added_at?: string | null;
   is_favorite?: boolean | null;
   is_top?: boolean | null;
+  top_rank?: number | null;
   rewatch?: boolean | null;
   guest_rating?: number | null;
   guest_votes?: number | null;
@@ -112,6 +113,7 @@ function mapMediaRow(row: MediaRow): MediaItem {
     addedAt: row.added_at || new Date().toISOString(),
     isFavorite: Boolean(row.is_favorite),
     isTop: Boolean(row.is_top),
+    topRank: row.top_rank || undefined,
     rewatch: Boolean(row.rewatch),
     guestRating: row.guest_rating ? Number(row.guest_rating) : undefined,
     guestVotes: row.guest_votes ? Number(row.guest_votes) : 0,
@@ -195,6 +197,7 @@ export async function saveMediaItem(item: MediaItem): Promise<boolean> {
         added_at: item.addedAt,
         is_favorite: item.isFavorite || false,
         is_top: item.isTop || false,
+        top_rank: item.topRank,
         rewatch: item.rewatch || false,
       });
     return !error;

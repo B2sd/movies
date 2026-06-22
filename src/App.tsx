@@ -11,7 +11,7 @@ import { getAdminStatus, hasSupabaseConfig, loadComments as loadSupaComments, lo
 import type { ActivityLog, MediaItem, MediaType, PublicComment, PublicRating, SortMode } from './types';
 import './App.css';
 
-const STORAGE_MEDIA_KEY = 'karan-media-items-v10';
+const STORAGE_MEDIA_KEY = 'karan-media-items-v11';
 const STORAGE_COMMENTS_KEY = 'karan-comments-v2';
 const STORAGE_RATINGS_QUEUE_KEY = 'karan-ratings-queue-v1';
 const STORAGE_LOGS_KEY = 'karan-activity-logs-v1';
@@ -30,6 +30,7 @@ function mergeMedia(primary: MediaItem[], secondary: MediaItem[]) {
       myReview: current?.myReview ?? item.myReview,
       isFavorite: current?.isFavorite ?? item.isFavorite,
       isTop: current?.isTop ?? item.isTop,
+      topRank: current?.topRank ?? item.topRank,
       rewatch: current?.rewatch ?? item.rewatch,
       guestRating: current?.guestRating ?? item.guestRating,
       guestVotes: current?.guestVotes ?? item.guestVotes,
@@ -65,7 +66,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [type, setType] = useState<MediaType | 'all'>('all');
-  const [sort, setSort] = useState<SortMode>('added-desc');
+  const [sort, setSort] = useState<SortMode>('rating-desc');
   const [selected, setSelected] = useState<MediaItem | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(() => ['localhost', '127.0.0.1'].includes(window.location.hostname) && localStorage.getItem('karan-admin-unlocked') === 'true');
@@ -101,6 +102,7 @@ export default function App() {
     localStorage.removeItem('karan-media-items-v7');
     localStorage.removeItem('karan-media-items-v8');
     localStorage.removeItem('karan-media-items-v9');
+    localStorage.removeItem('karan-media-items-v10');
     return () => clearTimeout(debounceRef.current);
   }, []);
 
@@ -211,9 +213,9 @@ export default function App() {
   const filteredItems = useMemo(() => filterAndSortMedia([...items], debouncedQuery, type, sort), [items, debouncedQuery, type, sort]);
   const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
   const topItems = useMemo(() => [...items]
-    .filter((item) => item.isTop || item.isFavorite || item.myRating)
-    .sort((a, b) => ((b.myRating || 0) - (a.myRating || 0)))
-    .slice(0, 8), [items]);
+    .filter((item) => item.topRank)
+    .sort((a, b) => (a.topRank || 99) - (b.topRank || 99))
+    .slice(0, 5), [items]);
   const selectedItem = selected ? items.find((item) => item.id === selected.id) || selected : null;
   const approvedCommentsCount = useMemo(() => comments.reduce<Record<string, number>>((acc, comment) => {
     if (comment.status !== 'approved') return acc;
@@ -366,16 +368,16 @@ export default function App() {
         <div className="section-head">
           <div>
             <span className="eyebrow small">Мой топ</span>
-            <h2>Мои оценки и избранное</h2>
+            <h2>Мой топ-5</h2>
           </div>
-          <p>Здесь появятся фильмы после того, как ты сам поставишь оценку или отметишь карточку в админке.</p>
+          <p>Закрепи фильмы на местах Топ 1 - Топ 5 прямо в карточке фильма после входа в админку.</p>
         </div>
         <div className="top-strip">
           {topItems.length === 0 ? (
-            <div className="empty-top">Пока ты ничего не оценил. Зайди в админку и поставь первые оценки.</div>
+            <div className="empty-top">Пока топ пустой. Открой фильм, войди как админ и выбери место в топ-5.</div>
           ) : topItems.map((item, index) => (
             <button key={item.id} className="top-item" onClick={() => setSelected(item)}>
-              <span>{index + 1}</span>
+              <span>{item.topRank || index + 1}</span>
               <img
                 src={getPosterUrl(item)}
                 alt={item.titleRu}

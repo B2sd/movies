@@ -37,6 +37,7 @@ type CardForm = {
   kinopoiskId: string;
   imdbId: string;
   myRating: string;
+  topRank: string;
   myReview: string;
   isFavorite: boolean;
   isTop: boolean;
@@ -58,6 +59,7 @@ const emptyForm: CardForm = {
   kinopoiskId: '',
   imdbId: '',
   myRating: '',
+  topRank: '',
   myReview: '',
   isFavorite: false,
   isTop: false,
@@ -93,6 +95,7 @@ function itemToForm(item: MediaItem): CardForm {
     kinopoiskId: item.kinopoiskId ? String(item.kinopoiskId) : '',
     imdbId: item.imdbId || '',
     myRating: item.myRating ? String(item.myRating) : '',
+    topRank: item.topRank ? String(item.topRank) : '',
     myReview: item.myReview || '',
     isFavorite: Boolean(item.isFavorite),
     isTop: Boolean(item.isTop),
@@ -119,6 +122,7 @@ function formToItem(form: CardForm, base?: MediaItem): MediaItem {
     kinopoiskRating: numberOrUndefined(form.kinopoiskRating),
     imdbRating: numberOrUndefined(form.imdbRating),
     myRating: numberOrUndefined(form.myRating),
+    topRank: numberOrUndefined(form.topRank),
     myReview: form.myReview.trim(),
     watchedAt: base?.watchedAt,
     addedAt: base?.addedAt || new Date().toISOString(),
@@ -495,7 +499,15 @@ function CardEditorForm({ form, setForm, onSubmit, submitLabel }: CardEditorForm
         <input className="wide" value={form.genres} onChange={(event) => setForm((current) => ({ ...current, genres: event.target.value }))} placeholder="Жанры через запятую" />
         <input value={form.kinopoiskRating} onChange={(event) => setForm((current) => ({ ...current, kinopoiskRating: event.target.value }))} min="0" max="10" step="0.1" type="number" placeholder="Кинопоиск" />
         <input value={form.imdbRating} onChange={(event) => setForm((current) => ({ ...current, imdbRating: event.target.value }))} min="0" max="10" step="0.1" type="number" placeholder="IMDb" />
-        <input value={form.myRating} onChange={(event) => setForm((current) => ({ ...current, myRating: event.target.value }))} min="0" max="10" step="0.5" type="number" placeholder="Моя оценка" />
+        <input value={form.myRating} onChange={(event) => setForm((current) => ({ ...current, myRating: event.target.value }))} min="0" max="10" step="0.1" type="number" placeholder="Моя оценка" />
+        <select value={form.topRank} onChange={(event) => setForm((current) => ({ ...current, topRank: event.target.value }))}>
+          <option value="">Без места в топ-5</option>
+          <option value="1">Топ 1</option>
+          <option value="2">Топ 2</option>
+          <option value="3">Топ 3</option>
+          <option value="4">Топ 4</option>
+          <option value="5">Топ 5</option>
+        </select>
         <textarea className="wide" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Официальное описание на русском" rows={4} />
         <textarea className="wide" value={form.myReview} onChange={(event) => setForm((current) => ({ ...current, myReview: event.target.value }))} placeholder="Моя рецензия" rows={4} />
         <label className="checkbox-line"><input type="checkbox" checked={form.isFavorite} onChange={(event) => setForm((current) => ({ ...current, isFavorite: event.target.checked }))} /> Избранное</label>

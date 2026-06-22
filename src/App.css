@@ -1436,3 +1436,56 @@ textarea {
     width: 100%;
   }
 }
+
+/* Красивый блок топ-5 */
+.top-strip {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.top-item {
+  min-height: 250px;
+  border-color: rgba(246, 196, 83, .18);
+}
+
+.top-item img {
+  height: 250px;
+}
+
+.top-item span {
+  width: 42px;
+  height: 42px;
+  border-radius: 15px;
+  font-size: 18px;
+  background: linear-gradient(135deg, #ffe08a, #f59e0b 55%, #fb7185);
+  box-shadow: 0 14px 34px rgba(245, 158, 11, .28);
+}
+
+.top-item strong {
+  font-size: 15px;
+}
+
+.top-item:nth-child(1) {
+  transform: translateY(-8px);
+  border-color: rgba(246, 196, 83, .48);
+}
+
+.top-item:nth-child(1) span::after {
+  content: 'TOP';
+  position: absolute;
+  left: 50px;
+  color: #ffe8a3;
+  font-size: 11px;
+  letter-spacing: .12em;
+}
+
+@media (max-width: 920px) {
+  .top-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .top-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

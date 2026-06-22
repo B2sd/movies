@@ -51,6 +51,7 @@ const statements = rows.map((item) => `(
   ${sql(item.addedAt)},
   ${sql(Boolean(item.isFavorite))},
   ${sql(Boolean(item.isTop))},
+  ${sql(item.topRank)},
   ${sql(Boolean(item.rewatch))}
 )`).join(',\n');
 
@@ -79,6 +80,7 @@ insert into media_items (
   added_at,
   is_favorite,
   is_top,
+  top_rank,
   rewatch
 )
 values
@@ -104,6 +106,7 @@ on conflict (id) do update set
   added_at = excluded.added_at,
   is_favorite = excluded.is_favorite,
   is_top = excluded.is_top,
+  top_rank = excluded.top_rank,
   rewatch = excluded.rewatch,
   updated_at = now();
 `;

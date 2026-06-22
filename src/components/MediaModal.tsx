@@ -23,6 +23,7 @@ export function MediaModal({ item, comments, onClose, onAddComment, onRate, hasR
   const [adminReview, setAdminReview] = useState(item.myReview || '');
   const [adminFavorite, setAdminFavorite] = useState(Boolean(item.isFavorite));
   const [adminTop, setAdminTop] = useState(Boolean(item.isTop));
+  const [adminTopRank, setAdminTopRank] = useState(item.topRank ? String(item.topRank) : '');
   const [adminRewatch, setAdminRewatch] = useState(Boolean(item.rewatch));
   const [editOpen, setEditOpen] = useState(false);
   const [editTitleRu, setEditTitleRu] = useState(item.titleRu);
@@ -38,6 +39,7 @@ export function MediaModal({ item, comments, onClose, onAddComment, onRate, hasR
   const [editImdbRating, setEditImdbRating] = useState(item.imdbRating ? String(item.imdbRating) : '');
   const [editKinopoiskId, setEditKinopoiskId] = useState(item.kinopoiskId ? String(item.kinopoiskId) : '');
   const [editImdbId, setEditImdbId] = useState(item.imdbId || '');
+  const [editTopRank, setEditTopRank] = useState(item.topRank ? String(item.topRank) : '');
   const approved = useMemo(() => comments.filter((entry) => entry.mediaId === item.id && entry.status === 'approved'), [comments, item.id]);
 
 
@@ -67,6 +69,8 @@ export function MediaModal({ item, comments, onClose, onAddComment, onRate, hasR
       imdbRating: numberOrUndefined(editImdbRating),
       kinopoiskId: numberOrUndefined(editKinopoiskId),
       imdbId: editImdbId.trim() || undefined,
+      topRank: numberOrUndefined(editTopRank),
+      isTop: Boolean(numberOrUndefined(editTopRank)) || item.isTop,
     });
     setEditOpen(false);
   }
@@ -85,7 +89,8 @@ export function MediaModal({ item, comments, onClose, onAddComment, onRate, hasR
       myRating: Number.isFinite(ratingValue) ? ratingValue : undefined,
       myReview: adminReview.trim(),
       isFavorite: adminFavorite,
-      isTop: adminTop,
+      isTop: adminTop || Boolean(numberOrUndefined(adminTopRank)),
+      topRank: numberOrUndefined(adminTopRank),
       rewatch: adminRewatch,
     });
   }
@@ -193,6 +198,14 @@ export function MediaModal({ item, comments, onClose, onAddComment, onRate, hasR
                     <input value={editImdbRating} onChange={(event) => setEditImdbRating(event.target.value)} min="0" max="10" step="0.1" type="number" placeholder="Рейтинг IMDb" />
                     <input value={editKinopoiskId} onChange={(event) => setEditKinopoiskId(event.target.value)} type="number" placeholder="Kinopoisk ID" />
                     <input value={editImdbId} onChange={(event) => setEditImdbId(event.target.value)} placeholder="IMDb ID" />
+                    <select value={editTopRank} onChange={(event) => setEditTopRank(event.target.value)}>
+                      <option value="">Не в моем топе</option>
+                      <option value="1">Топ 1</option>
+                      <option value="2">Топ 2</option>
+                      <option value="3">Топ 3</option>
+                      <option value="4">Топ 4</option>
+                      <option value="5">Топ 5</option>
+                    </select>
                     <textarea className="wide" value={editDescription} onChange={(event) => setEditDescription(event.target.value)} placeholder="Описание" rows={5} />
                   </div>
                   <button className="button primary full" type="submit">Сохранить карточку</button>
@@ -216,7 +229,7 @@ export function MediaModal({ item, comments, onClose, onAddComment, onRate, hasR
                     onChange={(event) => setAdminRating(event.target.value)}
                     min="0"
                     max="10"
-                    step="0.5"
+                    step="0.1"
                     type="range"
                     style={{ '--progress': `${(Number(adminRating || 0) / 10) * 100}%` } as React.CSSProperties}
                   />
@@ -225,7 +238,15 @@ export function MediaModal({ item, comments, onClose, onAddComment, onRate, hasR
                 </div>
                 <textarea value={adminReview} onChange={(event) => setAdminReview(event.target.value)} placeholder="Моя рецензия прямо здесь" rows={5} />
                 <label className="checkbox-line"><input type="checkbox" checked={adminFavorite} onChange={(event) => setAdminFavorite(event.target.checked)} /> Избранное</label>
-                <label className="checkbox-line"><input type="checkbox" checked={adminTop} onChange={(event) => setAdminTop(event.target.checked)} /> В топ</label>
+                <label className="checkbox-line"><input type="checkbox" checked={adminTop} onChange={(event) => setAdminTop(event.target.checked)} /> Просто отметить в топ</label>
+                <select value={adminTopRank} onChange={(event) => setAdminTopRank(event.target.value)} aria-label="Место в моем топе">
+                  <option value="">Без места в топ-5</option>
+                  <option value="1">Топ 1</option>
+                  <option value="2">Топ 2</option>
+                  <option value="3">Топ 3</option>
+                  <option value="4">Топ 4</option>
+                  <option value="5">Топ 5</option>
+                </select>
                 <label className="checkbox-line"><input type="checkbox" checked={adminRewatch} onChange={(event) => setAdminRewatch(event.target.checked)} /> Пересмотреть</label>
                 <button className="button primary full" type="submit">Сохранить мою рецензию</button>
               </form>
@@ -260,7 +281,7 @@ export function MediaModal({ item, comments, onClose, onAddComment, onRate, hasR
                 className="rating-range"
                 min="1"
                 max="10"
-                step="0.5"
+                step="0.1"
                 type="range"
                 value={rating}
                 onChange={(event) => setRating(Number(event.target.value))}

@@ -29,6 +29,7 @@ create table if not exists media_items (
   added_at timestamptz not null default now(),
   is_favorite boolean not null default false,
   is_top boolean not null default false,
+  top_rank int check (top_rank >= 1 and top_rank <= 5),
   rewatch boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()

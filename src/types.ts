@@ -1,4 +1,4 @@
-﻿export type MediaType = 'movie' | 'series' | 'cartoon' | 'anime' | 'show';
+export type MediaType = 'movie' | 'series' | 'cartoon' | 'anime' | 'show';
 
 export type CommentStatus = 'pending' | 'approved' | 'rejected';
 
@@ -32,6 +32,7 @@ export type MediaItem = {
   addedAt: string;
   isFavorite?: boolean;
   isTop?: boolean;
+  topRank?: number;
   rewatch?: boolean;
   tmdbId?: number;
   kinopoiskId?: number;
