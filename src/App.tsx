@@ -372,22 +372,34 @@ export default function App() {
           </div>
           <p>Закрепи фильмы на местах Топ 1 - Топ 5 прямо в карточке фильма после входа в админку.</p>
         </div>
-        <div className="top-strip">
-          {topItems.length === 0 ? (
-            <div className="empty-top">Пока топ пустой. Открой фильм, войди как админ и выбери место в топ-5.</div>
-          ) : topItems.map((item, index) => (
-            <button key={item.id} className="top-item" onClick={() => setSelected(item)}>
-              <span>{item.topRank || index + 1}</span>
-              <img
-                src={getPosterUrl(item)}
-                alt={item.titleRu}
-                onError={(event) => {
-                  event.currentTarget.src = getPosterUrl({ ...item, posterUrl: '' });
-                }}
-              />
-              <strong>{item.titleRu}</strong>
-            </button>
-          ))}
+        <div className="top-strip top-rank-board">
+          {[1, 2, 3, 4, 5].map((rank) => {
+            const item = topItems.find((entry) => entry.topRank === rank);
+            return item ? (
+              <button key={rank} className="top-rank-card" onClick={() => setSelected(item)}>
+                <span className="top-rank-label">Топ {rank}</span>
+                <img
+                  src={getPosterUrl(item)}
+                  alt={item.titleRu}
+                  onError={(event) => {
+                    event.currentTarget.src = getPosterUrl({ ...item, posterUrl: '' });
+                  }}
+                />
+                <div>
+                  <strong>{item.titleRu}</strong>
+                  <small>{item.myRating ? `${item.myRating}/10` : item.year || 'без оценки'}</small>
+                </div>
+              </button>
+            ) : (
+              <div key={rank} className="top-rank-card top-rank-empty">
+                <span className="top-rank-label">Топ {rank}</span>
+                <div>
+                  <strong>Пусто</strong>
+                  <small>Выбери фильм</small>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
