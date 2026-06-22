@@ -2,6 +2,15 @@
 
 export type CommentStatus = 'pending' | 'approved' | 'rejected';
 
+export type ActivityLog = {
+  id: string;
+  actor: string;
+  action: string;
+  target: string;
+  details?: string;
+  createdAt: string;
+};
+
 export type MediaItem = {
   id: string;
   titleRu: string;
@@ -16,6 +25,8 @@ export type MediaItem = {
   myRating?: number;
   guestRating?: number;
   guestVotes?: number;
+  kinopoiskRating?: number;
+  imdbRating?: number;
   myReview?: string;
   watchedAt?: string;
   addedAt: string;
@@ -24,6 +35,7 @@ export type MediaItem = {
   rewatch?: boolean;
   tmdbId?: number;
   kinopoiskId?: number;
+  imdbId?: string;
 };
 
 export type PublicComment = {
@@ -40,6 +52,7 @@ export type PublicRating = {
   mediaId: string;
   visitorName?: string;
   rating: number;
+  status: CommentStatus;
   createdAt: string;
 };
 

@@ -1,27 +1,49 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AdminPanel } from './components/AdminPanel';
 import { Filters } from './components/Filters';
 import { Hero } from './components/Hero';
 import { MediaCard } from './components/MediaCard';
 import { MediaModal } from './components/MediaModal';
-import { importedMedia } from './data/importedMedia';
-import { seedComments, seedMedia } from './data/seed';
-import { filterAndSortMedia, normalizeText } from './lib/helpers';
-import type { MediaItem, MediaType, PublicComment, SortMode } from './types';
+import { seedComments } from './data/seed';
+import { filterAndSortMedia, getPosterUrl, isGeneratedPosterUrl, normalizeText } from './lib/helpers';
+import { canUseTMDB, enrichOneFromTMDB } from './lib/tmdb';
+import { getAdminStatus, hasSupabaseConfig, loadComments as loadSupaComments, loadGuestRatings, loadMediaItems, loadPendingRatings as loadSupaPendingRatings, loadActivityLogs as loadSupaActivityLogs, submitComment as submitSupaComment, submitGuestRating, approveGuestRating as approveSupaGuestRating, deleteGuestRating as deleteSupaGuestRating, submitActivityLog as submitSupaActivityLog, approveComment as approveSupaComment, deleteComment as deleteSupaComment, saveMediaItem, deleteMediaItem } from './lib/supabase';
+import type { ActivityLog, MediaItem, MediaType, PublicComment, PublicRating, SortMode } from './types';
 import './App.css';
 
-const STORAGE_MEDIA_KEY = 'karan-media-items-v2';
+const STORAGE_MEDIA_KEY = 'karan-media-items-v10';
 const STORAGE_COMMENTS_KEY = 'karan-comments-v2';
+const STORAGE_RATINGS_QUEUE_KEY = 'karan-ratings-queue-v1';
+const STORAGE_LOGS_KEY = 'karan-activity-logs-v1';
+const STORAGE_RATED_KEY = 'karan-rated-media-v1';
+const PAGE_SIZE = 10000;
 
 function mergeMedia(primary: MediaItem[], secondary: MediaItem[]) {
   const map = new Map<string, MediaItem>();
   [...secondary, ...primary].forEach((item) => {
-    map.set(normalizeText(item.titleRu), item);
+    const key = normalizeText(item.titleRu);
+    const current = map.get(key);
+    map.set(key, {
+      ...current,
+      ...item,
+      myRating: current?.myRating ?? item.myRating,
+      myReview: current?.myReview ?? item.myReview,
+      isFavorite: current?.isFavorite ?? item.isFavorite,
+      isTop: current?.isTop ?? item.isTop,
+      rewatch: current?.rewatch ?? item.rewatch,
+      guestRating: current?.guestRating ?? item.guestRating,
+      guestVotes: current?.guestVotes ?? item.guestVotes,
+      kinopoiskRating: item.kinopoiskRating ?? current?.kinopoiskRating,
+      imdbRating: item.imdbRating ?? current?.imdbRating,
+      kinopoiskId: item.kinopoiskId ?? current?.kinopoiskId,
+      imdbId: item.imdbId ?? current?.imdbId,
+      tmdbId: item.tmdbId ?? current?.tmdbId,
+    });
   });
   return Array.from(map.values());
 }
 
-const defaultMedia = mergeMedia(seedMedia, importedMedia);
+const defaultMedia: MediaItem[] = [];
 
 function readStorage<T>(key: string, fallback: T) {
   try {
@@ -35,11 +57,69 @@ function readStorage<T>(key: string, fallback: T) {
 export default function App() {
   const [items, setItems] = useState<MediaItem[]>(() => mergeMedia(readStorage(STORAGE_MEDIA_KEY, defaultMedia), defaultMedia));
   const [comments, setComments] = useState<PublicComment[]>(() => readStorage(STORAGE_COMMENTS_KEY, seedComments));
+  const [pendingRatings, setPendingRatings] = useState<PublicRating[]>(() => readStorage(STORAGE_RATINGS_QUEUE_KEY, []));
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>(() => readStorage(STORAGE_LOGS_KEY, []));
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
+  const [autoPosterStatus, setAutoPosterStatus] = useState('');
+  const [ratedMediaIds, setRatedMediaIds] = useState<string[]>(() => readStorage(STORAGE_RATED_KEY, []));
   const [query, setQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [type, setType] = useState<MediaType | 'all'>('all');
   const [sort, setSort] = useState<SortMode>('added-desc');
   const [selected, setSelected] = useState<MediaItem | null>(null);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [isAdminUnlocked, setIsAdminUnlocked] = useState(() => ['localhost', '127.0.0.1'].includes(window.location.hostname) && localStorage.getItem('karan-admin-unlocked') === 'true');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  const handleQueryChange = useCallback((value: string) => {
+    setQuery(value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(value);
+      setVisibleCount(PAGE_SIZE);
+    }, 250);
+  }, []);
+
+  const handleTypeChange = useCallback((nextType: MediaType | 'all') => {
+    setType(nextType);
+    setVisibleCount(PAGE_SIZE);
+  }, []);
+
+  const handleSortChange = useCallback((nextSort: SortMode) => {
+    setSort(nextSort);
+    setVisibleCount(PAGE_SIZE);
+  }, []);
+
+  useEffect(() => {
+    localStorage.removeItem('karan-media-items-v2');
+    localStorage.removeItem('karan-media-items-v3');
+    localStorage.removeItem('karan-media-items-v4');
+    localStorage.removeItem('karan-media-items-v5');
+    localStorage.removeItem('karan-media-items-v6');
+    localStorage.removeItem('karan-media-items-v7');
+    localStorage.removeItem('karan-media-items-v8');
+    localStorage.removeItem('karan-media-items-v9');
+    return () => clearTimeout(debounceRef.current);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (hasSupabaseConfig) {
+      getAdminStatus().then((status) => {
+        if (!cancelled) setIsAdminUnlocked(status.isAdmin);
+      });
+    }
+    import('./data/enrichedMedia').then(({ enrichedMedia }) => {
+      if (cancelled) return;
+      setItems((current) => mergeMedia(enrichedMedia, current));
+      setCatalogLoaded(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_MEDIA_KEY, JSON.stringify(items));
@@ -49,75 +129,276 @@ export default function App() {
     localStorage.setItem(STORAGE_COMMENTS_KEY, JSON.stringify(comments));
   }, [comments]);
 
-  const filteredItems = useMemo(() => filterAndSortMedia([...items], query, type, sort), [items, query, type, sort]);
-  const topItems = useMemo(() => [...items].filter((item) => item.isTop).sort((a, b) => (b.myRating || 0) - (a.myRating || 0)).slice(0, 8), [items]);
+  useEffect(() => {
+    localStorage.setItem(STORAGE_RATINGS_QUEUE_KEY, JSON.stringify(pendingRatings));
+  }, [pendingRatings]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_LOGS_KEY, JSON.stringify(activityLogs));
+  }, [activityLogs]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_RATED_KEY, JSON.stringify(ratedMediaIds));
+  }, [ratedMediaIds]);
+
+  useEffect(() => {
+    if (!catalogLoaded || !canUseTMDB()) return;
+    const targets = items.filter((item) => isGeneratedPosterUrl(item.posterUrl)).slice(0, 40);
+    if (targets.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      setAutoPosterStatus(`Пробую заменить ${targets.length} автопостеров через TMDB...`);
+      let updated = 0;
+      for (const target of targets) {
+        if (cancelled) return;
+        try {
+          const enriched = await enrichOneFromTMDB(target);
+          if (!enriched || isGeneratedPosterUrl(enriched.posterUrl)) continue;
+          updated += 1;
+          setItems((current) => current.map((item) => item.id === target.id ? { ...item, ...enriched } : item));
+          await new Promise((resolve) => setTimeout(resolve, 180));
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
+      if (!cancelled) setAutoPosterStatus(updated ? `Обновлено реальных постеров: ${updated}` : 'TMDB не смог заменить автопостеры в этой партии');
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [catalogLoaded, items]);
+
+  useEffect(() => {
+    if (!hasSupabaseConfig) return;
+    (async () => {
+      const [supaItems, ratings, supaComments, supaPendingRatings, supaLogs] = await Promise.all([loadMediaItems(), loadGuestRatings(), loadSupaComments(), loadSupaPendingRatings(), loadSupaActivityLogs()]);
+      if (supaItems.length > 0) {
+        setItems((current) => mergeMedia(supaItems, current));
+      }
+      if (Object.keys(ratings).length > 0) {
+        setItems((current) => current.map((item) => {
+          const r = ratings[item.id];
+          if (!r) return item;
+          return { ...item, guestRating: r.rating, guestVotes: r.votes };
+        }));
+      }
+      if (supaComments.length > 0) {
+        setComments((current) => {
+          const existing = new Set(current.map((c) => c.id));
+          const newComments = supaComments.filter((c) => !existing.has(c.id));
+          return newComments.length > 0 ? [...newComments, ...current] : current;
+        });
+      }
+      if (supaPendingRatings.length > 0) {
+        setPendingRatings((current) => {
+          const existing = new Set(current.map((r) => r.id));
+          const next = supaPendingRatings.filter((r) => !existing.has(r.id));
+          return next.length > 0 ? [...next, ...current] : current;
+        });
+      }
+      if (supaLogs.length > 0) {
+        setActivityLogs((current) => {
+          const existing = new Set(current.map((l) => l.id));
+          const next = supaLogs.filter((l) => !existing.has(l.id));
+          return next.length > 0 ? [...next, ...current].slice(0, 300) : current;
+        });
+      }
+    })();
+  }, []);
+
+  const filteredItems = useMemo(() => filterAndSortMedia([...items], debouncedQuery, type, sort), [items, debouncedQuery, type, sort]);
+  const visibleItems = useMemo(() => filteredItems.slice(0, visibleCount), [filteredItems, visibleCount]);
+  const topItems = useMemo(() => [...items]
+    .filter((item) => item.isTop || item.isFavorite || item.myRating)
+    .sort((a, b) => ((b.myRating || 0) - (a.myRating || 0)))
+    .slice(0, 8), [items]);
+  const selectedItem = selected ? items.find((item) => item.id === selected.id) || selected : null;
+  const approvedCommentsCount = useMemo(() => comments.reduce<Record<string, number>>((acc, comment) => {
+    if (comment.status !== 'approved') return acc;
+    acc[comment.mediaId] = (acc[comment.mediaId] || 0) + 1;
+    return acc;
+  }, {}), [comments]);
+
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Escape') return;
+      if (adminOpen) {
+        setAdminOpen(false);
+        return;
+      }
+      if (selected) setSelected(null);
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [adminOpen, selected]);
+
+  function addLog(action: string, target: string, details?: string, actor = 'Система') {
+    const log: ActivityLog = {
+      id: `log-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      actor,
+      action,
+      target,
+      details,
+      createdAt: new Date().toISOString(),
+    };
+    setActivityLogs((current) => [log, ...current].slice(0, 300));
+    if (hasSupabaseConfig) {
+      submitSupaActivityLog({ actor: log.actor, action: log.action, target: log.target, details: log.details, createdAt: log.createdAt });
+    }
+  }
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setVisibleCount((c) => Math.min(c + PAGE_SIZE, filteredItems.length));
+      }
+    }, { rootMargin: '400px' });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [filteredItems.length]);
 
   function handleAddComment(comment: Omit<PublicComment, 'id' | 'createdAt' | 'status'>) {
-    setComments((current) => [{
+    const newComment: PublicComment = {
       ...comment,
       id: `comment-${Date.now()}`,
       status: 'pending',
       createdAt: new Date().toISOString(),
-    }, ...current]);
+    };
+    setComments((current) => [newComment, ...current]);
+    addLog('Комментарий отправлен на модерацию', itemTitle(comment.mediaId), comment.comment, comment.visitorName.trim());
+    if (hasSupabaseConfig) {
+      submitSupaComment({ mediaId: comment.mediaId, visitorName: comment.visitorName, comment: comment.comment });
+    }
+  }
+
+  function itemTitle(mediaId: string) {
+    return items.find((item) => item.id === mediaId)?.titleRu || mediaId;
   }
 
   function handleRate(mediaId: string, rating: number) {
+    if (ratedMediaIds.includes(mediaId)) return;
+
+    const newRating: PublicRating = {
+      id: `rating-${Date.now()}`,
+      mediaId,
+      visitorName: 'Гость',
+      rating,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    setPendingRatings((current) => [newRating, ...current]);
+    setRatedMediaIds((current) => current.includes(mediaId) ? current : [...current, mediaId]);
+    addLog('Оценка зрителя отправлена на модерацию', itemTitle(mediaId), `${rating}/10`, 'Гость');
+    if (hasSupabaseConfig) submitGuestRating(mediaId, rating);
+  }
+
+  function applyApprovedRating(mediaId: string, rating: number) {
     setItems((current) => current.map((item) => {
       if (item.id !== mediaId) return item;
       const votes = item.guestVotes || 0;
       const average = item.guestRating || rating;
       const nextAverage = ((average * votes) + rating) / (votes + 1);
-      const updated = { ...item, guestRating: Number(nextAverage.toFixed(1)), guestVotes: votes + 1 };
-      if (selected?.id === mediaId) setSelected(updated);
-      return updated;
+      return { ...item, guestRating: Number(nextAverage.toFixed(1)), guestVotes: votes + 1 };
     }));
+  }
+
+  function handleApproveRating(id: string) {
+    const rating = pendingRatings.find((entry) => entry.id === id);
+    if (!rating) return;
+    applyApprovedRating(rating.mediaId, rating.rating);
+    setPendingRatings((current) => current.filter((entry) => entry.id !== id));
+    addLog('Оценка зрителя одобрена', itemTitle(rating.mediaId), `${rating.rating}/10`, 'Админ');
+    if (hasSupabaseConfig) approveSupaGuestRating(id);
+  }
+
+  function handleDeleteRating(id: string) {
+    const rating = pendingRatings.find((entry) => entry.id === id);
+    setPendingRatings((current) => current.filter((entry) => entry.id !== id));
+    if (rating) addLog('Оценка зрителя отклонена', itemTitle(rating.mediaId), `${rating.rating}/10`, 'Админ');
+    if (hasSupabaseConfig) deleteSupaGuestRating(id);
   }
 
   function handleAddItem(item: MediaItem) {
     setItems((current) => [item, ...current]);
+    addLog('Добавлена карточка', item.titleRu, item.titleOriginal, 'Админ');
+    if (hasSupabaseConfig) saveMediaItem(item);
+  }
+
+  function handleUpdateItem(updatedItem: MediaItem) {
+    setItems((current) => current.map((item) => item.id === updatedItem.id ? updatedItem : item));
+    addLog('Обновлена карточка', updatedItem.titleRu, updatedItem.myRating ? `моя оценка: ${updatedItem.myRating}/10` : undefined, 'Админ');
+    if (hasSupabaseConfig) saveMediaItem(updatedItem);
+  }
+
+  function handleDeleteItem(id: string) {
+    const deleted = items.find((item) => item.id === id);
+    setItems((current) => current.filter((item) => item.id !== id));
+    setComments((current) => current.filter((comment) => comment.mediaId !== id));
+    setPendingRatings((current) => current.filter((rating) => rating.mediaId !== id));
+    if (selected?.id === id) setSelected(null);
+    addLog('Удалена карточка', deleted?.titleRu || id, undefined, 'Админ');
+    if (hasSupabaseConfig) deleteMediaItem(id);
   }
 
   function handleApproveComment(id: string) {
-    setComments((current) => current.map((comment) => comment.id === id ? { ...comment, status: 'approved' } : comment));
+    const comment = comments.find((entry) => entry.id === id);
+    setComments((current) => current.map((entry) => entry.id === id ? { ...entry, status: 'approved' } : entry));
+    if (comment) addLog('Комментарий одобрен', itemTitle(comment.mediaId), comment.comment, 'Админ');
+    if (hasSupabaseConfig) approveSupaComment(id);
   }
 
   function handleDeleteComment(id: string) {
-    setComments((current) => current.filter((comment) => comment.id !== id));
+    const comment = comments.find((entry) => entry.id === id);
+    setComments((current) => current.filter((entry) => entry.id !== id));
+    if (comment) addLog('Комментарий удален', itemTitle(comment.mediaId), comment.comment, 'Админ');
+    if (hasSupabaseConfig) deleteSupaComment(id);
   }
 
   return (
     <main>
-      <Hero items={items} query={query} onQueryChange={setQuery} onOpenAdmin={() => setAdminOpen(true)} />
+      <Hero items={items} onOpenAdmin={() => setAdminOpen(true)} />
 
       <section className="container top-section">
         <div className="section-head">
           <div>
-            <span className="eyebrow small">Личный топ</span>
-            <h2>Лучшее из архива</h2>
+            <span className="eyebrow small">Мой топ</span>
+            <h2>Мои оценки и избранное</h2>
           </div>
-          <p>Фильмы и сериалы с максимальной личной оценкой. Позже сюда можно добавить отдельную страницу топов.</p>
+          <p>Здесь появятся фильмы после того, как ты сам поставишь оценку или отметишь карточку в админке.</p>
         </div>
         <div className="top-strip">
-          {topItems.map((item, index) => (
+          {topItems.length === 0 ? (
+            <div className="empty-top">Пока ты ничего не оценил. Зайди в админку и поставь первые оценки.</div>
+          ) : topItems.map((item, index) => (
             <button key={item.id} className="top-item" onClick={() => setSelected(item)}>
               <span>{index + 1}</span>
-              <img src={item.posterUrl} alt={item.titleRu} />
+              <img
+                src={getPosterUrl(item)}
+                alt={item.titleRu}
+                onError={(event) => {
+                  event.currentTarget.src = getPosterUrl({ ...item, posterUrl: '' });
+                }}
+              />
               <strong>{item.titleRu}</strong>
             </button>
           ))}
         </div>
       </section>
 
-      <section className="container catalog-section">
+      <section id="catalog" className="container catalog-section">
         <div className="section-head">
           <div>
             <span className="eyebrow small">Каталог</span>
             <h2>Все просмотренное</h2>
           </div>
-          <p>Найдено: {filteredItems.length} из {items.length}</p>
+          <p>{autoPosterStatus || (catalogLoaded ? `Найдено: ${filteredItems.length} из ${items.length}` : 'Загружаю полный каталог...')}</p>
         </div>
 
-        <Filters selectedType={type} onTypeChange={setType} sort={sort} onSortChange={setSort} />
+        <Filters selectedType={type} query={query} onQueryChange={handleQueryChange} onTypeChange={handleTypeChange} sort={sort} onSortChange={handleSortChange} />
 
         {filteredItems.length === 0 ? (
           <div className="empty-state">
@@ -125,26 +406,37 @@ export default function App() {
             <p>Попробуй изменить поиск или фильтр типа контента.</p>
           </div>
         ) : (
-          <div className="media-grid">
-            {filteredItems.map((item) => (
-              <MediaCard key={item.id} item={item} onSelect={setSelected} />
-            ))}
-          </div>
+          <>
+            <div className="media-grid">
+              {visibleItems.map((item) => (
+                <MediaCard key={item.id} item={item} commentsCount={approvedCommentsCount[item.id] || 0} onSelect={setSelected} />
+              ))}
+            </div>
+            {visibleCount < filteredItems.length && (
+              <div ref={sentinelRef} className="load-more-wrap">
+                <div className="load-spinner" />
+              </div>
+            )}
+          </>
         )}
       </section>
 
       <footer className="footer">
-        <strong>Киноархив Карана</strong>
-        <span>React + TypeScript + Vite + Supabase-ready + GitHub Pages</span>
+        <strong>Киноархив</strong>
+        <span>React + TypeScript + Vite + Supabase + GitHub Pages</span>
       </footer>
 
-      {selected && (
+      {selectedItem && (
         <MediaModal
-          item={selected}
+          key={selectedItem.id}
+          item={selectedItem}
           comments={comments}
           onClose={() => setSelected(null)}
           onAddComment={handleAddComment}
           onRate={handleRate}
+          hasRated={ratedMediaIds.includes(selectedItem.id)}
+          isAdminUnlocked={isAdminUnlocked}
+          onUpdateItem={handleUpdateItem}
         />
       )}
 
@@ -152,9 +444,16 @@ export default function App() {
         <AdminPanel
           items={items}
           comments={comments}
+          pendingRatings={pendingRatings}
+          activityLogs={activityLogs}
+          onApproveRating={handleApproveRating}
+          onDeleteRating={handleDeleteRating}
           onAddItem={handleAddItem}
+          onUpdateItem={handleUpdateItem}
+          onDeleteItem={handleDeleteItem}
           onApproveComment={handleApproveComment}
           onDeleteComment={handleDeleteComment}
+          onAdminUnlockedChange={setIsAdminUnlocked}
           onClose={() => setAdminOpen(false)}
         />
       )}

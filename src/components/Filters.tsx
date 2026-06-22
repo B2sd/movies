@@ -1,4 +1,5 @@
-﻿import type { MediaType, SortMode } from '../types';
+import { Search } from 'lucide-react';
+import type { MediaType, SortMode } from '../types';
 import { mediaTypeLabels, sortLabels } from '../lib/helpers';
 
 const types: Array<MediaType | 'all'> = ['all', 'movie', 'series', 'cartoon', 'anime', 'show'];
@@ -6,14 +7,25 @@ const sorts: SortMode[] = ['added-desc', 'rating-desc', 'year-desc', 'guest-rati
 
 type Props = {
   selectedType: MediaType | 'all';
+  query: string;
+  onQueryChange: (value: string) => void;
   onTypeChange: (type: MediaType | 'all') => void;
   sort: SortMode;
   onSortChange: (sort: SortMode) => void;
 };
 
-export function Filters({ selectedType, onTypeChange, sort, onSortChange }: Props) {
+export function Filters({ selectedType, query, onQueryChange, onTypeChange, sort, onSortChange }: Props) {
   return (
     <section className="filters-panel">
+      <label className="search-box sticky-search">
+        <Search size={18} />
+        <input
+          value={query}
+          onChange={(event) => onQueryChange(event.target.value)}
+          placeholder="Быстрый поиск по каталогу"
+        />
+      </label>
+
       <div className="chip-row">
         {types.map((type) => (
           <button

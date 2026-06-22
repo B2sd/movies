@@ -1,0 +1,35 @@
+﻿{
+  "generatedAt": "2026-06-22T17:34:50.264Z",
+  "counts": {
+    "enriched": 597,
+    "seed": 38,
+    "mergedOnSite": 599,
+    "enrichedTypes": {
+      "movie": 436,
+      "series": 56,
+      "cartoon": 83,
+      "anime": 18,
+      "show": 4
+    },
+    "mergedTypes": {
+      "movie": 437,
+      "series": 57,
+      "cartoon": 83,
+      "anime": 18,
+      "show": 4
+    },
+    "missingPoster": 0,
+    "generatedPosters": 0,
+    "missingDescription": 0,
+    "missingYear": 0,
+    "personalRatings": 0,
+    "externalRatings": 597,
+    "duplicateTitlesInEnriched": 0,
+    "duplicateTitlesAfterMerge": 0,
+    "suspiciousMatches": 0
+  },
+  "duplicateSamples": [],
+  "suspicious": [],
+  "missingPosterSample": [],
+  "missingYearSample": []
+}

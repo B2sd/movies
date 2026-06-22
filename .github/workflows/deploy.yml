@@ -29,6 +29,16 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+        env:
+          VITE_TMDB_API_KEY: ${{ secrets.VITE_TMDB_API_KEY }}
+          VITE_TMDB_READ_TOKEN: ${{ secrets.VITE_TMDB_READ_TOKEN }}
+          VITE_KINOPOISK_UNOFFICIAL_API_KEY: ${{ secrets.VITE_KINOPOISK_UNOFFICIAL_API_KEY }}
+          VITE_OMDB_API_KEY: ${{ secrets.VITE_OMDB_API_KEY }}
+          VITE_POISKKINO_API_KEY: ${{ secrets.VITE_POISKKINO_API_KEY }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_ADMIN_EMAIL: ${{ secrets.VITE_ADMIN_EMAIL }}
+          VITE_ADMIN_DEMO_CODE: ${{ secrets.VITE_ADMIN_DEMO_CODE }}
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

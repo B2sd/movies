@@ -11,6 +11,17 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.mimocode/
+db_out*.txt
+*.tsbuildinfo
+scripts/*-cache.json
+scripts/omdb-cache.json
+scripts/tmdb-cache.json
+scripts/tmdb-enrich-cache.json
+scripts/kinopoisk-unofficial-cache.json
+scripts/poiskkino-cache.json
+kp_final.csv
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +33,4 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+tmp-*.json
